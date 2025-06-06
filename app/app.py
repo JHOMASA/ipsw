@@ -1,9 +1,9 @@
 import streamlit as st
-from .datetime import datetime, timedelta
-from .database import InventoryDB
-from .registration import RegistrationSystem
-from .reports import InventoryReports
-from .semantic_search import SemanticSearch
+from datetime import datetime, timedelta
+from database import InventoryDB
+from registration import RegistrationSystem
+from reports import InventoryReports
+from semantic_search import SemanticSearch
 
 def main():
     # Configure page

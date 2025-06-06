@@ -1,0 +1,4 @@
+cmake
+pkg-config
+g++
+make

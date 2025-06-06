@@ -1,5 +1,5 @@
-from app.typing import Dict
-from app.datetime import datetime
+from typing import Dict
+from datetime import datetime
 from app.database import InventoryCalculator
 
 class RegistrationSystem:

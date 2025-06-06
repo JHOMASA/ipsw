@@ -1,6 +1,6 @@
-from typing import List, Dict
+from app.typing import List, Dict
 import pandas as pd
-from datetime import datetime
+from app.datetime import datetime
 
 class InventoryReports:
     def __init__(self, db):

@@ -1,5 +1,5 @@
-from app.sqlite3 import dbapi2 as sqlite3
-from app.typing import Dict, List, Optional
+from sqlite3 import dbapi2 as sqlite3
+from typing import Dict, List, Optional
 
 class InventoryDB:
     def __init__(self, db_path: str = "data/inventory.db"):

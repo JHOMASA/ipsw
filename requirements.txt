@@ -1,5 +1,5 @@
 streamlit==1.28.0
 sentence-transformers==2.2.2
+sentencepiece  # no version pin
 numpy==1.24.3
-pandas==2.0.3
-plotly==5.15.0
+setuptools==68.2.2

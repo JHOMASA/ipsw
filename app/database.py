@@ -1,4 +1,4 @@
-import sqlite3
+from sqlite3 import dbapi2 as sqlite3
 from typing import Dict, List, Optional
 
 class InventoryDB:

@@ -1,1 +1,79 @@
+import sqlite3
+from typing import Dict, List, Optional
 
+class InventoryDB:
+    def __init__(self, db_path: str = "data/inventory.db"):
+        self.conn = sqlite3.connect(db_path)
+        self.conn.execute("PRAGMA foreign_keys = ON")
+        self._init_db()
+
+    def _init_db(self):
+        """Initialize database structure"""
+        cursor = self.conn.cursor()
+        
+        # Products table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS productos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            codigo TEXT UNIQUE NOT NULL,
+            nombre TEXT NOT NULL,
+            categoria TEXT,
+            unidad_medida TEXT DEFAULT 'unidades',
+            stock_minimo INTEGER DEFAULT 0,
+            precio_unitario DECIMAL(10,2) DEFAULT 0,
+            notas TEXT,
+            activo BOOLEAN DEFAULT TRUE,
+            empresa_id INTEGER DEFAULT 1
+        )
+        """)
+        
+        # Movements table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS movimientos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            producto_id INTEGER NOT NULL,
+            tipo TEXT CHECK(tipo IN ('entrada', 'salida')),
+            cantidad INTEGER NOT NULL,
+            precio_unitario DECIMAL(10,2) NOT NULL,
+            precio_total DECIMAL(10,2) GENERATED ALWAYS AS (cantidad * precio_unitario) STORED,
+            fecha_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
+            documento TEXT,
+            responsable TEXT,
+            notas TEXT,
+            empresa_id INTEGER DEFAULT 1,
+            FOREIGN KEY (producto_id) REFERENCES productos(id)
+        )
+        """)
+        
+        # Monthly inventory table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS existencias (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            producto_id INTEGER NOT NULL,
+            mes INTEGER NOT NULL CHECK (mes BETWEEN 1 AND 12),
+            anio INTEGER NOT NULL,
+            stock_inicial INTEGER NOT NULL,
+            entradas INTEGER NOT NULL DEFAULT 0,
+            salidas INTEGER NOT NULL DEFAULT 0,
+            stock_final INTEGER NOT NULL,
+            valor_inicial DECIMAL(15,2) NOT NULL,
+            valor_entradas DECIMAL(15,2) NOT NULL DEFAULT 0,
+            valor_salidas DECIMAL(15,2) NOT NULL DEFAULT 0,
+            valor_final DECIMAL(15,2) NOT NULL,
+            empresa_id INTEGER DEFAULT 1,
+            UNIQUE(producto_id, mes, anio, empresa_id),
+            FOREIGN KEY (producto_id) REFERENCES productos(id)
+        )
+        """)
+        
+        # Product embeddings table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS producto_embeddings (
+            producto_id INTEGER PRIMARY KEY,
+            nombre_embedding BLOB,
+            descripcion_embedding BLOB,
+            FOREIGN KEY (producto_id) REFERENCES productos(id)
+        )
+        """)
+        
+        self.conn.commit()

@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 from functools import lru_cache
 import streamlit as st
-
+from app.database import InventoryDB
 class InventoryReports:
     def __init__(self, db):
         self.db = db

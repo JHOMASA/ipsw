@@ -2,6 +2,7 @@ import numpy as np
 import sqlite3
 from sentence_transformers import SentenceTransformer
 from typing import List, Dict
+from app.database import InventoryDB
 
 class SemanticSearch:
     def __init__(self, db_path: str = "data/inventory.db"):

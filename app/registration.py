@@ -1,6 +1,6 @@
 from typing import Dict
 from datetime import datetime
-from .inventory_logic import InventoryCalculator
+from app.inventory_logic import InventoryCalculator
 
 class RegistrationSystem:
     def __init__(self, db):

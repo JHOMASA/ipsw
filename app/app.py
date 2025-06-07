@@ -1,6 +1,12 @@
 import streamlit as st
-from datetime import datetime, timedelta
-from app.registration import RegistrationSystem  # Use absolute imports
+import sys
+from pathlib import Path
+
+# Add the parent directory to Python path
+sys.path.append(str(Path(__file__).parent.parent))
+
+# Now use direct imports
+from app.registration import RegistrationSystem
 from app.reports import InventoryReports
 from app.semantic_search import SemanticSearch
 from app.database import InventoryDB

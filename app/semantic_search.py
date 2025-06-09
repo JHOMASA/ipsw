@@ -41,6 +41,7 @@ class SemanticSearch:
         cursor.execute(
             "SELECT nombre, categoria, notas FROM productos WHERE id = ?", 
             (producto_id,)
+        )
         if row := cursor.fetchone():
             return dict(row)
         return None

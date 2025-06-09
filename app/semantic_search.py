@@ -8,6 +8,18 @@ from functools import lru_cache
 
 class SemanticSearch:
     def __init__(self, db_path: str = "data/inventory.db"):
+        self.model_name = 'paraphrase-multilingual-MiniLM-L12-v2'
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self.model = AutoModel.from_pretrained(self.model_name)
+        self.db = sqlite3.connect(db_path)
+        
+    def encode(self, text: str) -> np.ndarray:
+        inputs = self.tokenizer(text, return_tensors='pt', padding=True, truncation=True)
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+        return outputs.last_hidden_state.mean(dim=1).numpy()
+        
+    def __init__(self, db_path: str = "data/inventory.db"):
         # Initialize with a more efficient model and enable caching
         self.model = SentenceTransformer(
             'paraphrase-multilingual-MiniLM-L12-v2',

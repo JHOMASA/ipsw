@@ -1,8 +1,10 @@
 streamlit==1.28.0
 sentence-transformers==2.2.2
-transformers==4.30.2
-torch==1.13.1
+transformers==4.30.2  # Downgraded from 4.36.2
+torch==1.13.1         # Downgraded from 2.1.2
 numpy==1.26.0
 pandas==2.0.0
 protobuf==3.20.0
+sentencepiece==0.1.96
 huggingface-hub==0.16.4
+setuptools==68.2.2

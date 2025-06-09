@@ -4,5 +4,6 @@ sentencepiece==0.1.96
 numpy>=1.26
 setuptools==68.2.2
 pandas>=2.0.0
-sqlite3>=3.0.0  # Usually included in Python but good to specify
-protobuf>=3.20.0 2
+protobuf>=3.20.0
+transformers>=4.0.0
+torch>=1.0.0

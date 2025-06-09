@@ -8,24 +8,12 @@ from functools import lru_cache
 
 class SemanticSearch:
     def __init__(self, db_path: str = "data/inventory.db"):
+        # Initialize model
         self.model_name = 'paraphrase-multilingual-MiniLM-L12-v2'
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.model = AutoModel.from_pretrained(self.model_name)
-        self.db = sqlite3.connect(db_path)
         
-    def encode(self, text: str) -> np.ndarray:
-        inputs = self.tokenizer(text, return_tensors='pt', padding=True, truncation=True)
-        with torch.no_grad():
-            outputs = self.model(**inputs)
-        return outputs.last_hidden_state.mean(dim=1).numpy()
-        
-    def __init__(self, db_path: str = "data/inventory.db"):
-        # Initialize with a more efficient model and enable caching
-        self.model = SentenceTransformer(
-            'paraphrase-multilingual-MiniLM-L12-v2',
-            device='cpu',  # Change to 'cuda' if GPU available
-            cache_folder='./model_cache'
-        )
+        # Initialize database
         self.db = sqlite3.connect(db_path)
         self.db.row_factory = sqlite3.Row  # Enable dictionary-style access
         
@@ -45,6 +33,13 @@ class SemanticSearch:
         )
         """)
         self.db.commit()
+
+    def encode(self, text: str) -> np.ndarray:
+        """Generate embeddings for text"""
+        inputs = self.tokenizer(text, return_tensors='pt', padding=True, truncation=True)
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+        return outputs.last_hidden_state.mean(dim=1).numpy()
 
     @lru_cache(maxsize=1000)
     def _get_product_text(self, producto_id: int) -> Optional[Dict]:
@@ -70,7 +65,7 @@ class SemanticSearch:
         # Batch processing for efficiency
         with ThreadPoolExecutor() as executor:
             nombre_embedding, desc_embedding = list(executor.map(
-                self.model.encode,
+                self.encode,  # Using our encode method instead of SentenceTransformer
                 [nombre, descripcion]
             ))
         
@@ -81,11 +76,10 @@ class SemanticSearch:
         VALUES (?, ?, ?)
         """, (
             producto_id, 
-            nombre_embedding.tobytes(), 
-            desc_embedding.tobytes()
+            np.array(nombre_embedding).tobytes(), 
+            np.array(desc_embedding).tobytes()
         ))
         self.db.commit()
-
     def buscar_semanticamente(self, consulta: str, top_k: int = 5, threshold: float = 0.3) -> List[Dict]:
         """Enhanced semantic search with better performance"""
         consulta_embedding = self.model.encode(consulta)

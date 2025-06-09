@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 from datetime import datetime, timedelta  # Added missing imports
 # Add the parent directory to Python path
-sys.path.append(str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent))
 
 # Now use direct imports
 from registration import RegistrationSystem

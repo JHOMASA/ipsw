@@ -9,97 +9,87 @@ from functools import lru_cache
 import logging
 from datetime import datetime
 
-# Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class SemanticSearch:
-    def __init__(self, db_path: str = "data/inventory.db", model_name: str = 'paraphrase-multilingual-MiniLM-L12-v2'):
-        """
-        Initialize semantic search system with:
-        - DB connection
-        - Embedding model
-        - Thread pool for parallel processing
-        """
-        self.model = SentenceTransformer(model_name)
-        self.db = sqlite3.connect(db_path)
-        self.db.row_factory = sqlite3.Row  # Enable dict-style row access
-        self.thread_pool = ThreadPoolExecutor(max_workers=4)
-        self._init_db()
-        logger.info(f"Initialized SemanticSearch with model {model_name}")
+    def __init__(self, db_path: str = "data/inventory.db"):
+        """Initialize semantic search system"""
+        self.model_name = 'paraphrase-multilingual-MiniLM-L12-v2'
+        try:
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            self.model = AutoModel.from_pretrained(self.model_name)
+            self.db = sqlite3.connect(db_path)
+            self.db.row_factory = sqlite3.Row  # Enable dict-style access
+            self._init_db()
+            logger.info("SemanticSearch initialized successfully")
+        except Exception as e:
+            logger.error(f"Initialization failed: {str(e)}")
+            raise
 
     def _init_db(self):
-        """Initialize database tables with proper error handling"""
+        """Initialize database tables"""
+        cursor = self.db.cursor()
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS producto_embeddings (
+            producto_id INTEGER PRIMARY KEY,
+            nombre_embedding BLOB,
+            descripcion_embedding BLOB,
+            last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (producto_id) REFERENCES productos(id)
+        )
+        """)
+        cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_embeddings_producto_id 
+        ON producto_embeddings(producto_id)
+        """)
+        self.db.commit()
+
+    def encode(self, text: str) -> np.ndarray:
+        """Generate embeddings for text"""
         try:
-            cursor = self.db.cursor()
-            cursor.execute("""
-            CREATE TABLE IF NOT EXISTS producto_embeddings (
-                producto_id INTEGER PRIMARY KEY,
-                nombre_embedding BLOB,
-                descripcion_embedding BLOB,
-                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE CASCADE
-            )""")
-            cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_embeddings_producto_id 
-            ON producto_embeddings(producto_id)""")
-            self.db.commit()
-        except sqlite3.Error as e:
-            logger.error(f"Database initialization failed: {str(e)}")
-            raise
+            inputs = self.tokenizer(text, 
+                                 return_tensors='pt', 
+                                 padding=True, 
+                                 truncation=True,
+                                 max_length=512)
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+            return outputs.last_hidden_state.mean(dim=1).squeeze().numpy()
+        except Exception as e:
+            logger.error(f"Encoding failed for text: {str(e)}")
+            return np.zeros(self.model.config.hidden_size)
 
     @lru_cache(maxsize=1000)
     def _get_product_text(self, producto_id: int) -> Optional[Dict]:
-        """Cache product text queries with error handling"""
+        """Cache product text queries"""
         try:
             cursor = self.db.cursor()
             cursor.execute(
                 "SELECT nombre, categoria, notas FROM productos WHERE id = ?", 
                 (producto_id,)
-            )
             if row := cursor.fetchone():
                 return dict(row)
             return None
         except sqlite3.Error as e:
-            logger.warning(f"Failed to fetch product {producto_id}: {str(e)}")
+            logger.warning(f"Database query failed: {str(e)}")
             return None
 
-    def encode(self, text: Union[str, List[str]]) -> np.ndarray:
-        """
-        Enhanced embedding generation with:
-        - Batch support
-        - Empty text handling
-        - Automatic device detection
-        """
-        if isinstance(text, str):
-            if not text.strip():
-                return np.zeros(self.model.get_sentence_embedding_dimension())
-            text = [text]
-        
-        return self.model.encode(
-            text,
-            convert_to_numpy=True,
-            device='cuda' if torch.cuda.is_available() else 'cpu',
-            normalize_embeddings=True
-        )
-
     def generar_embeddings_producto(self, producto_id: int):
-        """
-        Generate and store embeddings for a product with:
-        - Automatic text concatenation
-        - Parallel encoding
-        - Transaction safety
-        """
+        """Generate and store embeddings for a product"""
         product_data = self._get_product_text(producto_id)
         if not product_data:
             raise ValueError(f"Product {producto_id} not found")
         
-        nombre = product_data['nombre']
-        descripcion = f"{nombre} {product_data['categoria'] or ''} {product_data['notas'] or ''}".strip()
-        
         try:
-            # Process in parallel
-            nombre_embedding, desc_embedding = self.encode([nombre, descripcion])
+            nombre = product_data['nombre']
+            descripcion = f"{nombre} {product_data['categoria'] or ''} {product_data['notas'] or ''}".strip()
+            
+            with ThreadPoolExecutor() as executor:
+                nombre_embedding, desc_embedding = list(executor.map(
+                    self.encode,
+                    [nombre, descripcion]
+                ))
             
             with self.db:  # Transaction
                 self.db.execute("""
@@ -108,20 +98,15 @@ class SemanticSearch:
                 VALUES (?, ?, ?)
                 """, (
                     producto_id, 
-                    nombre_embedding.tobytes(), 
-                    desc_embedding.tobytes()
+                    np.array(nombre_embedding).tobytes(), 
+                    np.array(desc_embedding).tobytes()
                 ))
         except Exception as e:
-            logger.error(f"Failed generating embeddings for {producto_id}: {str(e)}")
+            logger.error(f"Failed to generate embeddings: {str(e)}")
             raise
 
     def buscar_semanticamente(self, consulta: str, top_k: int = 5, threshold: float = 0.3) -> List[Dict]:
-        """
-        Enhanced semantic search with:
-        - Hybrid scoring (name + description)
-        - Automatic embedding generation for missing products
-        - Proper result formatting
-        """
+        """Perform semantic search"""
         try:
             consulta_embedding = self.encode(consulta)
             cursor = self.db.cursor()
@@ -159,13 +144,10 @@ class SemanticSearch:
                         **similarities
                     })
             
-            # Generate missing embeddings if needed
             if needs_embedding:
                 logger.info(f"Generating embeddings for {len(needs_embedding)} products")
-                list(self.thread_pool.map(
-                    self.generar_embeddings_producto, 
-                    needs_embedding
-                ))
+                with ThreadPoolExecutor() as executor:
+                    executor.map(self.generar_embeddings_producto, needs_embedding)
                 return self.buscar_semanticamente(consulta, top_k, threshold)
             
             return sorted(results, key=lambda x: x['total'], reverse=True)[:top_k]
@@ -178,37 +160,31 @@ class SemanticSearch:
                               query_embedding: np.ndarray, 
                               name_embedding: np.ndarray, 
                               desc_embedding: np.ndarray) -> Dict[str, float]:
-        """
-        Calculate weighted similarity scores with:
-        - Name priority (60%)
-        - Description support (40%)
-        - NaN protection
-        """
-        def safe_similarity(a, b):
-            with np.errstate(invalid='ignore'):
-                sim = self._cosine_similarity(a, b)
+        """Calculate weighted similarity scores"""
+        def safe_sim(a, b):
+            sim = self._cosine_similarity(a, b)
             return sim if not np.isnan(sim) else 0.0
         
         return {
-            'name_sim': safe_similarity(query_embedding, name_embedding),
-            'desc_sim': safe_similarity(query_embedding, desc_embedding),
-            'total': 0.6 * safe_similarity(query_embedding, name_embedding) + 
-                    0.4 * safe_similarity(query_embedding, desc_embedding)
+            'name_sim': safe_sim(query_embedding, name_embedding),
+            'desc_sim': safe_sim(query_embedding, desc_embedding),
+            'total': 0.6 * safe_sim(query_embedding, name_embedding) + 
+                    0.4 * safe_sim(query_embedding, desc_embedding)
         }
 
     @staticmethod
     def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
-        """Optimized cosine similarity with norm checks"""
+        """Calculate cosine similarity"""
         a_norm = np.linalg.norm(a)
         b_norm = np.linalg.norm(b)
         return np.dot(a, b) / (a_norm * b_norm) if a_norm * b_norm > 0 else 0.0
 
     def close(self):
-        """Proper resource cleanup"""
-        self.thread_pool.shutdown()
-        self.db.close()
+        """Clean up resources"""
+        if hasattr(self, 'db'):
+            self.db.close()
         logger.info("Resources cleaned up")
 
     def __del__(self):
-        """Destructor for safety"""
+        """Destructor"""
         self.close()

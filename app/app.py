@@ -1,4 +1,3 @@
-import streamlit as st
 import sys
 from pathlib import Path
 from datetime import datetime, timedelta  # Added missing imports
@@ -6,10 +5,10 @@ from datetime import datetime, timedelta  # Added missing imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Now use direct imports
-from app.registration import RegistrationSystem
-from app.reports import InventoryReports
-from app.semantic_search import SemanticSearch
-from app.database import InventoryDB
+from registration import RegistrationSystem
+from reports import InventoryReports
+from semantic_search import SemanticSearch
+from database import InventoryDB
 
 def main():
     # Configure page

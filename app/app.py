@@ -1,7 +1,7 @@
 import streamlit as st
 import sys
 from pathlib import Path
-
+from datetime import datetime, timedelta  # Added missing imports
 # Add the parent directory to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -10,7 +10,7 @@ from app.registration import RegistrationSystem
 from app.reports import InventoryReports
 from app.semantic_search import SemanticSearch
 from app.database import InventoryDB
-from datetime import datetime, timedelta  # Added missing imports
+
 def main():
     # Configure page
     st.set_page_config(

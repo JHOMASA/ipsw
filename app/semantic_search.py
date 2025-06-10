@@ -13,9 +13,9 @@ import logging
 import torch
 from datetime import datetime
 
-# Workaround for PyTorch + Streamlit bug
-if hasattr(torch, '__path__'):
-    torch.__path__ = [p for p in torch.__path__ if "__path__._path" not in p]
+# ℹ️ Recommended: Disable file watcher in .streamlit/config.toml to prevent torch::class_ crash
+# [server]
+# fileWatcherType = "none"
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -177,7 +177,6 @@ class SemanticSearch:
 
     def __del__(self):
         self.close()
-
 
 
 

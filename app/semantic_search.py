@@ -1,15 +1,15 @@
+import os
 import numpy as np
 import sqlite3
-import os
 from sentence_transformers import SentenceTransformer
 import typing
 from database import InventoryDB
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from transformers import AutoTokenizer, AutoModel
-import streamlit as st  # Add this line
-
+import streamlit as st
 import logging
+import torch
 from datetime import datetime
 
 # Configure logging
@@ -161,3 +161,4 @@ class SemanticSearch:
 
     def __del__(self):
         self.close()
+

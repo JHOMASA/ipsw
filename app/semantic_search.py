@@ -24,9 +24,8 @@ class SemanticSearch:
         self.model = AutoModel.from_pretrained(self.model_name)
 
         if db_path is None:
-            db_path = Path(__file__).parent / "data" / "inventory.db"
-            db_path.parent.mkdir(parents=True, exist_ok=True)
-            db_path = str(db_path)
+            db_path = os.path.join(Path(__file__).parent, "data", "inventory.db")
+            os.makedirs(os.path.dirname(db_path), exist_ok=True)
 
         try:
             self.db = sqlite3.connect(db_path)
@@ -173,5 +172,6 @@ class SemanticSearch:
 
     def __del__(self):
         self.close()
+
 
 

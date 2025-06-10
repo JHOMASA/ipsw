@@ -2,6 +2,11 @@ from sqlite3 import dbapi2 as sqlite3
 from typing import Dict, List, Optional
 import os
 from pathlib import Path  # <-- Add this import
+from huggingface_hub import login
+
+# Authenticate with Hugging Face
+login(token=os.getenv("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"))
+
 
 class InventoryDB:
     def __init__(self, db_path: str = None):

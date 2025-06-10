@@ -4,7 +4,7 @@ import os
 from pathlib import Path  # <-- Add this import
 from huggingface_hub import login
 
-hf_token = os.getenv("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")
+hf_token = os.getenv("")
 if not hf_token:
     raise EnvironmentError("Hugging Face token (HF_TOKEN) not set in environment.")
 login(token="")

@@ -2,10 +2,18 @@ from sqlite3 import dbapi2 as sqlite3
 from typing import Dict, List, Optional
 
 class InventoryDB:
-    def __init__(self, db_path: str = "data/inventory.db"):
-        self.conn = sqlite3.connect(db_path)
-        self.conn.execute("PRAGMA foreign_keys = ON")
-        self._init_db()
+    def __init__(self, db_path: str = None):
+        """Initialize database with proper path handling"""
+        try:
+            if db_path is None:
+                db_path = os.path.join(Path(__file__).parent, "data", "inventory.db")
+                os.makedirs(os.path.dirname(db_path), exist_ok=True)
+            
+            self.conn = sqlite3.connect(db_path)
+            self.conn.execute("PRAGMA foreign_keys = ON")
+            self._init_db()
+        except Exception as e:
+            raise RuntimeError(f"Database connection failed: {str(e)}")
 
     def _init_db(self):
         """Initialize database structure"""

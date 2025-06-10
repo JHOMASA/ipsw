@@ -9,16 +9,28 @@ from functools import lru_cache
 import logging
 from datetime import datetime
 
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+@st.cache_resource
+def load_model():
+    """Load the embedding model with Streamlit caching"""
+    model_name = 'paraphrase-multilingual-MiniLM-L12-v2'
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        model = AutoModel.from_pretrained(model_name)
+        logger.info("Model loaded successfully")
+        return tokenizer, model
+    except Exception as e:
+        logger.error(f"Model loading failed: {str(e)}")
+        raise
 
 class SemanticSearch:
     def __init__(self, db_path: str = "data/inventory.db"):
         """Initialize semantic search system"""
-        self.model_name = 'paraphrase-multilingual-MiniLM-L12-v2'
         try:
-            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-            self.model = AutoModel.from_pretrained(self.model_name)
+            self.tokenizer, self.model = load_model()
             self.db = sqlite3.connect(db_path)
             self.db.row_factory = sqlite3.Row  # Enable dict-style access
             self._init_db()
@@ -68,6 +80,7 @@ class SemanticSearch:
             cursor.execute(
                 "SELECT nombre, categoria, notas FROM productos WHERE id = ?", 
                 (producto_id,)
+            )
             if row := cursor.fetchone():
                 return dict(row)
             return None
@@ -188,3 +201,50 @@ class SemanticSearch:
     def __del__(self):
         """Destructor"""
         self.close()
+
+# Streamlit UI
+def main():
+    st.set_page_config(page_title="Semantic Product Search", layout="wide")
+    
+    st.title("🔍 Semantic Product Search")
+    st.markdown("Search products using natural language understanding")
+    
+    # Initialize search system
+    if 'search_system' not in st.session_state:
+        with st.spinner("Loading search system..."):
+            try:
+                st.session_state.search_system = SemanticSearch()
+            except Exception as e:
+                st.error(f"Failed to initialize search system: {str(e)}")
+                st.stop()
+    
+    # Search interface
+    with st.form("search_form"):
+        query = st.text_input("Search query", placeholder="Enter product name or description")
+        col1, col2 = st.columns(2)
+        top_k = col1.slider("Number of results", 1, 20, 5)
+        threshold = col2.slider("Similarity threshold", 0.0, 1.0, 0.3, 0.05)
+        submitted = st.form_submit_button("Search")
+    
+    if submitted and query:
+        with st.spinner(f"Searching for '{query}'..."):
+            results = st.session_state.search_system.buscar_semanticamente(
+                query, top_k=top_k, threshold=threshold
+            )
+        
+        if not results:
+            st.warning("No matching products found. Try a different query or lower the threshold.")
+        else:
+            st.success(f"Found {len(results)} matching products")
+            
+            for i, result in enumerate(results, 1):
+                with st.expander(f"#{i}: {result['nombre']} (Score: {result['total']:.2f})"):
+                    st.markdown(f"""
+                    **Code:** {result['codigo']}  
+                    **Category:** {result['categoria']}  
+                    **Name Similarity:** {result['name_sim']:.3f}  
+                    **Description Similarity:** {result['desc_sim']:.3f}
+                    """)
+
+if __name__ == "__main__":
+    main()

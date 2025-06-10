@@ -1,7 +1,7 @@
 from sqlite3 import dbapi2 as sqlite3
 from typing import Dict, List, Optional
 import os
-from pathlib import Path
+from pathlib import Path  # <-- Add this import
 
 class InventoryDB:
     def __init__(self, db_path: str = None):
@@ -10,13 +10,14 @@ class InventoryDB:
             if db_path is None:
                 db_path = Path(__file__).parent / "data" / "inventory.db"
                 db_path.parent.mkdir(parents=True, exist_ok=True)
-                db_path = str(db_path)
+                db_path = str(db_path)  # Convert to string for SQLite
 
             self.conn = sqlite3.connect(db_path)
             self.conn.execute("PRAGMA foreign_keys = ON")
             self._init_db()
         except Exception as e:
             raise RuntimeError(f"Database connection failed: {str(e)}")
+
 
     def _init_db(self):
         """Initialize database structure"""

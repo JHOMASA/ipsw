@@ -17,7 +17,7 @@ from registration import RegistrationSystem
 from reports import InventoryReports
 from semantic_search import SemanticSearch
 from database import InventoryDB
-from inventory_logic import InventoryCalculator
+
 
 def main():
     # Configure page

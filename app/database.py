@@ -4,8 +4,11 @@ import os
 from pathlib import Path  # <-- Add this import
 from huggingface_hub import login
 
-# Authenticate with Hugging Face
-login(token=os.getenv("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"))
+hf_token = os.getenv("HF_TOKEN")
+if not hf_token:
+    raise EnvironmentError("Hugging Face token (HF_TOKEN) not set in environment.")
+login(token=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)
+
 
 
 class InventoryDB:

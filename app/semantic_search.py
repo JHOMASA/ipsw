@@ -28,16 +28,10 @@ def load_model():
 
 class SemanticSearch:
     def __init__(self, db_path: str = "data/inventory.db"):
-        """Initialize semantic search system"""
-        try:
-            self.tokenizer, self.model = load_model()
-            self.db = sqlite3.connect(db_path)
-            self.db.row_factory = sqlite3.Row  # Enable dict-style access
-            self._init_db()
-            logger.info("SemanticSearch initialized successfully")
-        except Exception as e:
-            logger.error(f"Initialization failed: {str(e)}")
-            raise
+        self.model_name = 'paraphrase-MiniLM-L6-v2'
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self.model = AutoModel.from_pretrained(self.model_name)
+        self.db = sqlite3.connect(db_path)
 
     def _init_db(self):
         """Initialize database tables"""

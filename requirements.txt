@@ -1,10 +1,9 @@
-# Main app dependencies
 streamlit>=1.35.0
 sentence-transformers>=2.2.2
 transformers>=4.36.2
-torch>=2.2.1 --extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.2.1
 numpy>=1.26.0
 pandas>=2.0.0
-protobuf>=3.20.0,<4.0.0  # Avoid protobuf 4.x conflicts
+protobuf>=3.20.0,<4.0.0
 huggingface-hub>=0.20.3
 rich>=10.14.0,<14.0.0

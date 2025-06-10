@@ -4,7 +4,10 @@ from pathlib import Path
 from pathlib import Path
 import streamlit as st
 from datetime import datetime, timedelta  # Added missing imports
-
+import torch
+if hasattr(torch, '__path__'):
+    torch.__path__ = [p for p in torch.__path__ if "__path__._path" not in p]
+    
 # Configure paths
 BASE_DIR = Path(__file__).parent
 sys.path.append(str(BASE_DIR))

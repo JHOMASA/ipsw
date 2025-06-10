@@ -2,7 +2,7 @@ import numpy as np
 import sqlite3
 from sentence_transformers import SentenceTransformer
 from typing import List, Dict
-from app.database import InventoryDB
+from database import InventoryDB
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from transformers import AutoTokenizer, AutoModel

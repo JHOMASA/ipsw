@@ -1,7 +1,7 @@
 import numpy as np
 import sqlite3
 from sentence_transformers import SentenceTransformer
-from typing import List, Dict
+import typing
 from database import InventoryDB
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
@@ -50,7 +50,7 @@ class SemanticSearch:
             return np.zeros(self.model.config.hidden_size)
 
     @lru_cache(maxsize=1000)
-    def _get_product_text(self, producto_id: int) -> Optional[Dict]:
+    def _get_product_text(self, producto_id: int) -> typing.Optional[typing.Dict]:
         try:
             cursor = self.db.cursor()
             cursor.execute("SELECT nombre, categoria, notas FROM productos WHERE id = ?", (producto_id,))
@@ -87,7 +87,7 @@ class SemanticSearch:
             logger.error(f"Failed to generate embeddings: {str(e)}")
             raise
 
-    def buscar_semanticamente(self, consulta: str, top_k: int = 5, threshold: float = 0.3) -> List[Dict]:
+    def buscar_semanticamente(self, consulta: str, top_k: int = 5, threshold: float = 0.3) -> typing.List[typing.Dict]:
         try:
             consulta_embedding = self.encode(consulta)
             cursor = self.db.cursor()
@@ -136,7 +136,7 @@ class SemanticSearch:
             logger.error(f"Search failed: {str(e)}")
             return []
 
-    def _calculate_similarities(self, query_embedding: np.ndarray, name_embedding: np.ndarray, desc_embedding: np.ndarray) -> Dict[str, float]:
+    def _calculate_similarities(self, query_embedding: np.ndarray, name_embedding: np.ndarray, desc_embedding: np.ndarray) -> typing.Dict[str, float]:
         def safe_sim(a, b):
             sim = self._cosine_similarity(a, b)
             return sim if not np.isnan(sim) else 0.0

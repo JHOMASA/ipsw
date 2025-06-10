@@ -1,75 +1,162 @@
-from typing import Dict
-from datetime import datetime
-from inventory_logic import InventoryCalculator
+import numpy as np
+import sqlite3
+from sentence_transformers import SentenceTransformer
+from typing import List, Dict, Optional
 from database import InventoryDB
+from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
+from transformers import AutoTokenizer, AutoModel
+import streamlit as st
+import logging
+import torch
+from datetime import datetime
 
-class RegistrationSystem:
-    def __init__(self, db):
-        self.db = db
-        self.calculator = InventoryCalculator(db)
-    
-    def registrar_movimiento(self, movimiento: Dict):
-        """Register a movement and update inventory"""
-        cursor = self.db.conn.cursor()
-        
-        # Verify product exists and is active
-        cursor.execute("SELECT id FROM productos WHERE id = ? AND activo = TRUE", 
-                       (movimiento['producto_id'],))
-        if not cursor.fetchone():
-            raise ValueError("Product not found or inactive")
-        
-        # Register movement
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class SemanticSearch:
+    def __init__(self, db_path: str = "data/inventory.db"):
+        self.model_name = 'paraphrase-MiniLM-L6-v2'
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self.model = AutoModel.from_pretrained(self.model_name)
+        self.db = sqlite3.connect(db_path)
+
+    def _init_db(self):
+        cursor = self.db.cursor()
         cursor.execute("""
-        INSERT INTO movimientos (
-            producto_id, tipo, cantidad, precio_unitario, fecha_hora, empresa_id
-        ) VALUES (?, ?, ?, ?, ?, ?)
-        """, (
-            movimiento['producto_id'],
-            movimiento['tipo'],
-            movimiento['cantidad'],
-            movimiento['precio_unitario'],
-            datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-            1  # empresa_id
-        ))
-        
-        # Get current month/year for inventory calculation
-        now = datetime.now()
-        mes = now.month
-        anio = now.year
-        
-        # Calculate and update inventory
-        existencias = self.calculator.calcular_existencias_mes(
-            movimiento['producto_id'], mes, anio, 1
+        CREATE TABLE IF NOT EXISTS producto_embeddings (
+            producto_id INTEGER PRIMARY KEY,
+            nombre_embedding BLOB,
+            descripcion_embedding BLOB,
+            last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (producto_id) REFERENCES productos(id)
         )
-        
-        self._actualizar_existencias(existencias)
-        self.db.conn.commit()
-    
-    def _actualizar_existencias(self, existencias: Dict):
-        """Update or insert monthly inventory data"""
-        cursor = self.db.conn.cursor()
+        """)
         cursor.execute("""
-        INSERT OR REPLACE INTO existencias (
-            producto_id, mes, anio, stock_inicial, entradas, salidas, stock_final,
-            valor_inicial, valor_entradas, valor_salidas, valor_final, empresa_id
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            existencias['producto_id'],
-            existencias['mes'],
-            existencias['anio'],
-            existencias['stock_inicial'],
-            existencias['entradas'],
-            existencias['salidas'],
-            existencias['stock_final'],
-            existencias['valor_inicial'],
-            existencias['valor_entradas'],
-            existencias['valor_salidas'],
-            existencias['valor_final'],
-            existencias['empresa_id']
-        ))
-    
-    def get_product_list(self) -> Dict[int, str]:
-        """Get active products as {id: name} dictionary"""
-        cursor = self.db.conn.cursor()
-        cursor.execute("SELECT id, nombre FROM productos WHERE activo = TRUE")
-        return {row[0]: row[1] for row in cursor.fetchall()}
+        CREATE INDEX IF NOT EXISTS idx_embeddings_producto_id 
+        ON producto_embeddings(producto_id)
+        """)
+        self.db.commit()
+
+    def encode(self, text: str) -> np.ndarray:
+        try:
+            inputs = self.tokenizer(text, return_tensors='pt', padding=True, truncation=True, max_length=512)
+            with torch.no_grad():
+                outputs = self.model(**inputs)
+            return outputs.last_hidden_state.mean(dim=1).squeeze().numpy()
+        except Exception as e:
+            logger.error(f"Encoding failed for text: {str(e)}")
+            return np.zeros(self.model.config.hidden_size)
+
+    @lru_cache(maxsize=1000)
+    def _get_product_text(self, producto_id: int) -> Optional[Dict]:
+        try:
+            cursor = self.db.cursor()
+            cursor.execute("SELECT nombre, categoria, notas FROM productos WHERE id = ?", (producto_id,))
+            row = cursor.fetchone()
+            if row:
+                return {'nombre': row[0], 'categoria': row[1], 'notas': row[2]}
+            return None
+        except sqlite3.Error as e:
+            logger.warning(f"Database query failed: {str(e)}")
+            return None
+
+    def generar_embeddings_producto(self, producto_id: int):
+        product_data = self._get_product_text(producto_id)
+        if not product_data:
+            raise ValueError(f"Product {producto_id} not found")
+
+        try:
+            nombre = product_data['nombre']
+            descripcion = f"{nombre} {product_data['categoria'] or ''} {product_data['notas'] or ''}".strip()
+            with ThreadPoolExecutor() as executor:
+                nombre_embedding, desc_embedding = list(executor.map(self.encode, [nombre, descripcion]))
+
+            with self.db:
+                self.db.execute("""
+                INSERT OR REPLACE INTO producto_embeddings 
+                (producto_id, nombre_embedding, descripcion_embedding)
+                VALUES (?, ?, ?)
+                """, (
+                    producto_id, 
+                    np.array(nombre_embedding).tobytes(), 
+                    np.array(desc_embedding).tobytes()
+                ))
+        except Exception as e:
+            logger.error(f"Failed to generate embeddings: {str(e)}")
+            raise
+
+    def buscar_semanticamente(self, consulta: str, top_k: int = 5, threshold: float = 0.3) -> List[Dict]:
+        try:
+            consulta_embedding = self.encode(consulta)
+            cursor = self.db.cursor()
+            cursor.execute("""
+            SELECT p.id, p.nombre, p.codigo, p.categoria,
+                   e.nombre_embedding, e.descripcion_embedding
+            FROM productos p
+            LEFT JOIN producto_embeddings e ON p.id = e.producto_id
+            WHERE p.activo = TRUE
+            ORDER BY e.last_updated DESC
+            """)
+
+            results = []
+            needs_embedding = []
+
+            for row in cursor.fetchall():
+                row = dict(zip(["id", "nombre", "codigo", "categoria", "nombre_embedding", "descripcion_embedding"], row))
+                if not row['nombre_embedding']:
+                    needs_embedding.append(row['id'])
+                    continue
+
+                similarities = self._calculate_similarities(
+                    consulta_embedding,
+                    np.frombuffer(row['nombre_embedding'], dtype=np.float32),
+                    np.frombuffer(row['descripcion_embedding'], dtype=np.float32)
+                )
+
+                if similarities['total'] >= threshold:
+                    results.append({
+                        'id': row['id'],
+                        'nombre': row['nombre'],
+                        'codigo': row['codigo'],
+                        'categoria': row['categoria'],
+                        **similarities
+                    })
+
+            if needs_embedding:
+                logger.info(f"Generating embeddings for {len(needs_embedding)} products")
+                with ThreadPoolExecutor() as executor:
+                    executor.map(self.generar_embeddings_producto, needs_embedding)
+                return self.buscar_semanticamente(consulta, top_k, threshold)
+
+            return sorted(results, key=lambda x: x['total'], reverse=True)[:top_k]
+
+        except Exception as e:
+            logger.error(f"Search failed: {str(e)}")
+            return []
+
+    def _calculate_similarities(self, query_embedding: np.ndarray, name_embedding: np.ndarray, desc_embedding: np.ndarray) -> Dict[str, float]:
+        def safe_sim(a, b):
+            sim = self._cosine_similarity(a, b)
+            return sim if not np.isnan(sim) else 0.0
+
+        return {
+            'name_sim': safe_sim(query_embedding, name_embedding),
+            'desc_sim': safe_sim(query_embedding, desc_embedding),
+            'total': 0.6 * safe_sim(query_embedding, name_embedding) + 0.4 * safe_sim(query_embedding, desc_embedding)
+        }
+
+    @staticmethod
+    def _cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
+        a_norm = np.linalg.norm(a)
+        b_norm = np.linalg.norm(b)
+        return np.dot(a, b) / (a_norm * b_norm) if a_norm * b_norm > 0 else 0.0
+
+    def close(self):
+        if hasattr(self, 'db'):
+            self.db.close()
+        logger.info("Resources cleaned up")
+
+    def __del__(self):
+        self.close()

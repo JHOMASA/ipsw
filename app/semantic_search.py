@@ -13,6 +13,10 @@ import logging
 import torch
 from datetime import datetime
 
+# Workaround for PyTorch + Streamlit bug
+if hasattr(torch, '__path__'):
+    torch.__path__ = [p for p in torch.__path__ if "__path__._path" not in p]
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -24,8 +28,9 @@ class SemanticSearch:
         self.model = AutoModel.from_pretrained(self.model_name)
 
         if db_path is None:
-            db_path = os.path.join(Path(__file__).parent, "data", "inventory.db")
-            os.makedirs(os.path.dirname(db_path), exist_ok=True)
+            db_path = Path(__file__).parent / "data" / "inventory.db"
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+            db_path = str(db_path)
 
         try:
             self.db = sqlite3.connect(db_path)
@@ -172,6 +177,7 @@ class SemanticSearch:
 
     def __del__(self):
         self.close()
+
 
 
 

@@ -5,6 +5,8 @@ from typing import List, Dict
 from app.database import InventoryDB
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
+from transformers import AutoTokenizer, AutoModel
+import streamlit as st  # Add this line
 
 import logging
 from datetime import datetime
@@ -13,7 +15,7 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-@st.cache_resource
+@st.cache_resource  # Now this will work
 def load_model():
     """Load the embedding model with Streamlit caching"""
     model_name = 'paraphrase-multilingual-MiniLM-L12-v2'
@@ -24,7 +26,7 @@ def load_model():
         return tokenizer, model
     except Exception as e:
         logger.error(f"Model loading failed: {str(e)}")
-        raise
+        raise   
 
 class SemanticSearch:
     def __init__(self, db_path: str = "data/inventory.db"):

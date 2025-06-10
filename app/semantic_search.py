@@ -3,6 +3,7 @@ import numpy as np
 import sqlite3
 from sentence_transformers import SentenceTransformer
 import typing
+from pathlib import Path
 from database import InventoryDB
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
@@ -17,11 +18,21 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class SemanticSearch:
-    def __init__(self, db_path: str = "data/inventory.db"):
+    def __init__(self, db_path: str = None):
         self.model_name = 'paraphrase-MiniLM-L6-v2'
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.model = AutoModel.from_pretrained(self.model_name)
-        self.db = sqlite3.connect(db_path)
+
+        if db_path is None:
+            db_path = os.path.join(Path(__file__).parent, "data", "inventory.db")
+            os.makedirs(os.path.dirname(db_path), exist_ok=True)
+
+        try:
+            self.db = sqlite3.connect(db_path)
+            self.db.execute("PRAGMA foreign_keys = ON")
+            self._init_db()
+        except Exception as e:
+            raise RuntimeError(f"Database connection failed: {str(e)}")
 
     def _init_db(self):
         cursor = self.db.cursor()
@@ -161,4 +172,5 @@ class SemanticSearch:
 
     def __del__(self):
         self.close()
+
 

@@ -4,12 +4,11 @@ from pathlib import Path
 from pathlib import Path
 import streamlit as st
 from datetime import datetime, timedelta  # Added missing imports
-# Add the parent directory to Python path
-try:
-    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-except Exception as e:
-    st.error(f"Failed to set up Python path: {str(e)}")
-    st.stop()
+
+# Configure paths
+BASE_DIR = Path(__file__).parent
+sys.path.append(str(BASE_DIR))
+
 # Now use direct imports
 from registration import RegistrationSystem
 from reports import InventoryReports

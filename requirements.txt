@@ -1,3 +1,4 @@
+# Main app dependencies
 streamlit>=1.35.0
 sentence-transformers>=2.2.2
 transformers>=4.36.2
@@ -7,4 +8,3 @@ pandas>=2.0.0
 protobuf>=3.20.0,<4.0.0  # Avoid protobuf 4.x conflicts
 huggingface-hub>=0.20.3
 rich>=10.14.0,<14.0.0
-torch>=2.5.0

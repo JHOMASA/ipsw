@@ -12,11 +12,6 @@ import streamlit as st
 import logging
 import torch
 from datetime import datetime
-from pathlib import Path
-
-# ℹ️ Recommended: Disable file watcher in .streamlit/config.toml to prevent torch::class_ crash
-# [server]
-# fileWatcherType = "none"
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -98,8 +93,8 @@ class SemanticSearch:
                 VALUES (?, ?, ?)
                 """, (
                     producto_id, 
-                    np.array(nombre_embedding).tobytes(), 
-                    np.array(desc_embedding).tobytes()
+                    np.array(nombre_embedding).astype(np.float32).tobytes(), 
+                    np.array(desc_embedding).astype(np.float32).tobytes()
                 ))
         except Exception as e:
             logger.error(f"Failed to generate embeddings: {str(e)}")
@@ -178,6 +173,5 @@ class SemanticSearch:
 
     def __del__(self):
         self.close()
-
 
 

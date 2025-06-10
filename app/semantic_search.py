@@ -1,5 +1,6 @@
 import numpy as np
 import sqlite3
+import os
 from sentence_transformers import SentenceTransformer
 import typing
 from database import InventoryDB

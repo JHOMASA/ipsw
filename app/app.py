@@ -11,10 +11,10 @@ except Exception as e:
     st.error(f"Failed to set up Python path: {str(e)}")
     st.stop()
 # Now use direct imports
-from app.registration import RegistrationSystem
-from app.reports import InventoryReports
-from app.semantic_search import SemanticSearch
-from app.database import InventoryDB
+from registration import RegistrationSystem
+from reports import InventoryReports
+from semantic_search import SemanticSearch
+from database import InventoryDB
 
 def main():
     # Configure page

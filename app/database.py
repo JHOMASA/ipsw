@@ -8,9 +8,10 @@ class InventoryDB:
         """Initialize database with proper path handling"""
         try:
             if db_path is None:
-                db_path = os.path.join(Path(__file__).parent, "data", "inventory.db")
-                os.makedirs(os.path.dirname(db_path), exist_ok=True)
-            
+                db_path = Path(__file__).parent / "data" / "inventory.db"
+                db_path.parent.mkdir(parents=True, exist_ok=True)
+                db_path = str(db_path)
+
             self.conn = sqlite3.connect(db_path)
             self.conn.execute("PRAGMA foreign_keys = ON")
             self._init_db()
@@ -20,7 +21,7 @@ class InventoryDB:
     def _init_db(self):
         """Initialize database structure"""
         cursor = self.conn.cursor()
-        
+
         # Products table
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS productos (
@@ -36,7 +37,7 @@ class InventoryDB:
             empresa_id INTEGER DEFAULT 1
         )
         """)
-        
+
         # Movements table
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS movimientos (
@@ -54,7 +55,7 @@ class InventoryDB:
             FOREIGN KEY (producto_id) REFERENCES productos(id)
         )
         """)
-        
+
         # Monthly inventory table
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS existencias (
@@ -75,15 +76,16 @@ class InventoryDB:
             FOREIGN KEY (producto_id) REFERENCES productos(id)
         )
         """)
-        
+
         # Product embeddings table
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS producto_embeddings (
             producto_id INTEGER PRIMARY KEY,
             nombre_embedding BLOB,
             descripcion_embedding BLOB,
+            last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (producto_id) REFERENCES productos(id)
         )
         """)
-        
+
         self.conn.commit()

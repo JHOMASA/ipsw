@@ -1,4 +1,5 @@
 import numpy as np
+from inventory_logic import InventoryCalculator
 import sqlite3
 from sentence_transformers import SentenceTransformer
 from typing import List, Dict, Optional

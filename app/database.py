@@ -5,13 +5,15 @@ from pathlib import Path  # <-- Add this import
 
 class InventoryDB:
     def __init__(self, db_path: str = None):
-        """Initialize database with proper path handling"""
+        """Initialize database with cloud-compatible paths"""
         try:
             if db_path is None:
-                db_path = Path(__file__).parent / "data" / "inventory.db"
-                db_path.parent.mkdir(parents=True, exist_ok=True)
-                db_path = str(db_path)  # Convert to string for SQLite
-
+                # Cloud-friendly path construction
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+                data_dir = os.path.join(base_dir, "data")
+                os.makedirs(data_dir, exist_ok=True)
+                db_path = os.path.join(data_dir, "inventory.db")
+            
             self.conn = sqlite3.connect(db_path)
             self.conn.execute("PRAGMA foreign_keys = ON")
             self._init_db()

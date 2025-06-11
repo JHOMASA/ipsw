@@ -8,8 +8,15 @@ from dotenv import load_dotenv
 # Load environment variables from .env file if available
 load_dotenv()
 
-# Authenticate with Hugging Face using environment variable
+# Retrieve token and optional local password
 hf_token = os.getenv("HF_TOKEN")
+hf_password = os.getenv("HF_PASSWORD")  # Optional password for local control
+
+# Optional local access check
+if hf_password != "my_secure_password":
+    raise EnvironmentError("Invalid local HF password. Check your .env file.")
+
+# Authenticate with Hugging Face using token
 if not hf_token:
     raise EnvironmentError("Hugging Face token (HF_TOKEN) not set in environment.")
 login(token=hf_token)
@@ -100,4 +107,5 @@ class InventoryDB:
         """)
 
         self.conn.commit()
+
 

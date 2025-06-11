@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 class SemanticSearch:
     def __init__(self, db_path: str = None):
         self.model_name = 'paraphrase-MiniLM-L6-v2'
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-        self.model = AutoModel.from_pretrained(self.model_name)
+        self.tokenizer = AutoTokenizer.from_pretrained(self.model_name, token=hf_token)
+        self.model = AutoModel.from_pretrained(self.model_name, token=hf_token)
 
         if db_path is None:
             db_path = Path(__file__).parent / "data" / "inventory.db"

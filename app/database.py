@@ -1,33 +1,33 @@
 from sqlite3 import dbapi2 as sqlite3
 from typing import Dict, List, Optional
 import os
-from pathlib import Path  # <-- Add this import
+from pathlib import Path
 from huggingface_hub import login
+from dotenv import load_dotenv
 
+# Load environment variables from .env file if available
+load_dotenv()
+
+# Authenticate with Hugging Face using environment variable
 hf_token = os.getenv("HF_TOKEN")
 if not hf_token:
     raise EnvironmentError("Hugging Face token (HF_TOKEN) not set in environment.")
-login(token="")
-
-
+login(token=hf_token)
 
 class InventoryDB:
     def __init__(self, db_path: str = None):
-        """Initialize database with cloud-compatible paths"""
+        """Initialize database with proper path handling"""
         try:
             if db_path is None:
-                # Cloud-friendly path construction
-                base_dir = os.path.dirname(os.path.abspath(__file__))
-                data_dir = os.path.join(base_dir, "data")
-                os.makedirs(data_dir, exist_ok=True)
-                db_path = os.path.join(data_dir, "inventory.db")
-            
+                db_path = Path(__file__).parent / "data" / "inventory.db"
+                db_path.parent.mkdir(parents=True, exist_ok=True)
+                db_path = str(db_path)
+
             self.conn = sqlite3.connect(db_path)
             self.conn.execute("PRAGMA foreign_keys = ON")
             self._init_db()
         except Exception as e:
             raise RuntimeError(f"Database connection failed: {str(e)}")
-
 
     def _init_db(self):
         """Initialize database structure"""
@@ -100,3 +100,4 @@ class InventoryDB:
         """)
 
         self.conn.commit()
+
